@@ -16,27 +16,39 @@ class CVGstreamer:
         self.RTP_RECV_PORT0=RTP_RECV_PORT       # Порты приема
         self.RTCP_RECV_PORT0=RTCP_RECV_PORT     #
         self.RTCP_SEND_PORT0=RTCP_SEND_PORT     #
-        self.PAUSED=False                       # Метка паузы, мб потом заменить ее на что-нибудь
+        self.player = None                      # pipeline
 
-    def start(self):                            # Запуск чтения изображения из Gstreamera
-        if(self.PAUSED==True):                  # если до этого была пауза, продожить воспроизведение
-            self.player.set_state(Gst.State.PLAYING)
-            self.PAUSED=False
-        else:                                   # если нет
-            self.initElements()                 # инициализация и линковка
-            self.linkElements()     
-            self.player.set_state(Gst.State.READY)
-            self.player.set_state(Gst.State.PAUSED)
-            self.player.set_state(Gst.State.PLAYING) # запуск
-    
-    def paused(self):                           # пауза
+    def playPipe(self):
+        self.initElements()          # инициализация компонентов
+        self.linkElements()          # линковка
+        self.player.set_state(Gst.State.READY)
         self.player.set_state(Gst.State.PAUSED)
-        self.PAUSED=True
+        self.player.set_state(Gst.State.PLAYING)        
 
-    def stop(self):                             # остановка(+ освобождение ресурсов)
-        self.player.set_state(Gst.State.NULL)
-        self.PAUSED=False
-        print("STOP")       
+    def start(self):                # Запуск видео
+        if(not self.player):        # если не создан pipeline
+            self.playPipe()         # запустить pipeline
+        else:
+            state = self.player.get_state(Gst.CLOCK_TIME_NONE).state    # текущее состояние pipeline
+            if(state == Gst.State.PAUSED):                              # если перед этим была вызвана пауза
+                self.player.set_state(Gst.State.PLAYING)
+            elif(state == Gst.State.PLAYING):                           # если видос уже запущен
+                print("Error: Нельзя два раза запустить видос")
+            else:                                                       # если перед этим было вызвано stop
+                self.playPipe()                                         # запустить pipeline                
+
+    def paused(self):                   # пауза
+        if(self.player):
+            if((self.player.get_state(Gst.CLOCK_TIME_NONE).state) == Gst.State.NULL):    # если перед этим было вызвано stop
+                print("Error: Нельзя поставить на паузу освобожденные ресурсы")
+            else:
+                self.player.set_state(Gst.State.PAUSED)
+
+    def stop(self):                     # остановка и освобождение ресурсов
+        if(self.player):
+            self.player.set_state(Gst.State.NULL)
+            print("STOP")
+        
     
     def on_error(self, bus, msg):               # прием ошибок
         err, dbg = msg.parse_error()

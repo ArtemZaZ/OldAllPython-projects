@@ -30,8 +30,7 @@ def loadImageStr ( fileName ):
     image  = Image.open ( fileName )
     width  = image.size [0]
     height = image.size [1]
-    image  = image.tobytes( "raw", "RGBA", 0, -1 )
-    
+    image  = image.tobytes( "raw", "RGBA", 0, -1 )   
     return (width, height, image)
 
 class texture_block():
