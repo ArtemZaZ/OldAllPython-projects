@@ -7,11 +7,20 @@ from gi.repository import Gst, GObject, GLib
 import cv2
 
 class CVGstreamer:    
-    def __init__(self, IP = '127.0.0.1', RTP_RECV_PORT = 5000, RTCP_RECV_PORT = 5001, RTCP_SEND_PORT = 5005):   # ip и порты по умолчанию
+    def __init__(self, IP = '127.0.0.1', RTP_RECV_PORT = 5000, RTCP_RECV_PORT = 5001, RTCP_SEND_PORT = 5005, codec = "JPEG"):   # ip и порты по умолчанию + кодек jpeg и h264
         self.cvImage = None     # Изображение, полученное из openCV
         Gst.init(sys.argv)      # Инициализация компонентов           
-        GObject.threads_init()        
-        self.VIDEO_CAPS="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)JPEG,payload=(int)26,ssrc=(uint)1006979985,clock-base=(uint)312170047,seqnum-base=(uint)3174"    # caps приема
+        GObject.threads_init()
+        self.codec = codec      # используемый кодек
+        
+        if(self.codec == "JPEG"):
+            self.VIDEO_CAPS="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)JPEG,payload=(int)26,ssrc=(uint)1006979985,clock-base=(uint)312170047,seqnum-base=(uint)3174" # caps приема
+        elif(self.codec == "H264"):
+            self.VIDEO_CAPS="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264,payload=(int)96"    # caps приема
+        else:
+            print("Error: Такого кодека нет")
+            sys.exit(1)
+            
         self.IP=IP                              # ip приема
         self.RTP_RECV_PORT0=RTP_RECV_PORT       # Порты приема
         self.RTCP_RECV_PORT0=RTCP_RECV_PORT     #
@@ -74,8 +83,14 @@ class CVGstreamer:
         self.bus.connect("message::eos", self.on_eos)
 
         ################ VIDEODEPAY ################################
-        
-        self.videodepay0=Gst.ElementFactory.make('rtpjpegdepay', 'videodepay0') # создаем раскпаковщик видео формата jpeg
+        self.videodepay0 = None
+    
+        if(self.codec == "JPEG"):
+            self.videodepay0=Gst.ElementFactory.make('rtpjpegdepay', 'videodepay0') # создаем раскпаковщик видео формата jpeg
+            
+        elif(self.codec == "H264"):
+            self.videodepay0=Gst.ElementFactory.make('rtph264depay', 'videodepay0') # создаем раскпаковщик видео формата h264
+            
         if not self.videodepay0:
             print("ERROR: Could not create videodepay0.")
             sys.exit(1)
@@ -132,12 +147,17 @@ class CVGstreamer:
         self.rtpbin.connect('pad-added', pad_added_cb, self.videodepay0)
 
 ############### DECODER ######################################
-            
-        self.decoder0 = Gst.ElementFactory.make('jpegdec', "decoder0")  # декодирует jpeg формат
+        self.decoder0 = None
+
+        if(self.codec == "JPEG"):
+            self.decoder0 = Gst.ElementFactory.make('jpegdec', "decoder0")
+
+        elif(self.codec == "H264"):
+            self.decoder0 = Gst.ElementFactory.make('avdec_h264', "decoder0")  # декодирует h264 формат
+
         if not self.decoder0:
             print("ERROR: Could not create decoder0.")
-            sys.exit(1)
-       
+            sys.exit(1)       
 
 ######################## VIDEOCONVERT ############################
             
